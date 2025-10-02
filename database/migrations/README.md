@@ -1,11 +1,14 @@
-# Supabase 安全配置
+# Supabase 数据库迁移
 
-## 执行安全策略（按顺序）
+## 执行迁移脚本（按顺序）
 
-### Step 1: 表级权限配置
+### Step 1: 初始化数据库表结构
+执行 `20250101_initial_schema.sql` - 创建所有表和索引
+
+### Step 2: 表级权限配置
 执行 `20250102_table_permissions.sql` - 限制表的访问权限
 
-### Step 2: RLS 策略配置
+### Step 3: RLS 策略配置
 执行 `20250102_add_rls_policies.sql` - 行级安全策略
 
 ## 执行方式

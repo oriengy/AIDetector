@@ -6,15 +6,16 @@
 
 ```
 database/
-├── README.md                          # 本文档
-├── migrations/                        # SQL 迁移脚本
-│   ├── README.md                     # 执行指南
-│   ├── 20250102_table_permissions.sql   # 表级权限配置
-│   └── 20250102_add_rls_policies.sql    # RLS 行级安全策略
-└── docs/                             # 相关文档
-    ├── SECURITY.md                   # 安全架构说明
-    ├── supabase-setup.md            # Supabase 初始设置
-    └── supabase-api-settings.md     # API 访问控制配置
+├── README.md                             # 本文档
+├── migrations/                           # SQL 迁移脚本（按顺序执行）
+│   ├── README.md                        # 执行指南
+│   ├── 20250101_initial_schema.sql      # 1. 初始化表结构
+│   ├── 20250102_table_permissions.sql   # 2. 表级权限配置
+│   └── 20250102_add_rls_policies.sql    # 3. RLS 行级安全策略
+└── docs/                                # 相关文档
+    ├── SECURITY.md                      # 安全架构说明
+    ├── supabase-setup.md               # Supabase 初始设置
+    └── supabase-api-settings.md        # API 访问控制配置
 ```
 
 ## 🚀 快速开始
@@ -24,10 +25,13 @@ database/
 在 Supabase Dashboard SQL Editor 中执行：
 
 ```bash
-# Step 1: 表级权限配置
+# Step 1: 初始化数据库表结构
+migrations/20250101_initial_schema.sql
+
+# Step 2: 表级权限配置
 migrations/20250102_table_permissions.sql
 
-# Step 2: RLS 策略配置
+# Step 3: RLS 策略配置
 migrations/20250102_add_rls_policies.sql
 ```
 
