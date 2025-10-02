@@ -1,6 +1,14 @@
-# Supabase RLS 策略设置
+# Supabase 安全配置
 
-## 执行 RLS 策略
+## 执行安全策略（按顺序）
+
+### Step 1: 表级权限配置
+执行 `20250102_table_permissions.sql` - 限制表的访问权限
+
+### Step 2: RLS 策略配置
+执行 `20250102_add_rls_policies.sql` - 行级安全策略
+
+## 执行方式
 
 ### 方法 1: 通过 Supabase Dashboard（推荐）
 
