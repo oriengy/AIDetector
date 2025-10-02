@@ -34,19 +34,53 @@ export default function DetectPage() {
 
   useEffect(() => {
     // 检查用户登录状态
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user)
+
+      // 如果用户已登录，检查订阅状态
+      if (user) {
+        await checkSubscription(user.id)
+      }
     })
 
     // 监听认证状态变化
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
+
+      // 如果用户已登录，检查订阅状态
+      if (session?.user) {
+        await checkSubscription(session.user.id)
+      } else {
+        setHasPurchased(false)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // 检查用户订阅状态
+  const checkSubscription = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('subscription_status', 'active')
+        .gte('end_date', new Date().toISOString())
+        .single()
+
+      if (data && !error) {
+        setHasPurchased(true)
+      } else {
+        setHasPurchased(false)
+      }
+    } catch (error) {
+      console.error('Failed to check subscription:', error)
+      setHasPurchased(false)
+    }
+  }
 
   // 从 localStorage 恢复文本内容和检测结果
   useEffect(() => {
@@ -131,13 +165,45 @@ export default function DetectPage() {
     handleRewrite()
   }
 
-  const handlePurchase = () => {
-    // 模拟购买流程（0元购买）
-    setHasPurchased(true)
-    setShowPurchaseModal(false)
-    alert('Purchase successful! You can now use the AI Humanizer.')
-    // 购买成功后自动执行改写
-    handleRewrite()
+  const handlePurchase = async () => {
+    if (!user) {
+      alert('Please login first')
+      return
+    }
+
+    try {
+      // 创建订阅记录（有效期一个月）
+      const startDate = new Date()
+      const endDate = new Date()
+      endDate.setMonth(endDate.getMonth() + 1) // 一个月后过期
+
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          subscription_type: 'free_trial',
+          subscription_status: 'active',
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+        })
+        .select()
+        .single()
+
+      if (error) {
+        throw error
+      }
+
+      // 订阅创建成功
+      setHasPurchased(true)
+      setShowPurchaseModal(false)
+      alert('Purchase successful! You can now use the AI Humanizer for one month.')
+
+      // 购买成功后自动执行改写
+      handleRewrite()
+    } catch (error: any) {
+      console.error('Purchase failed:', error)
+      alert(`Purchase failed: ${error.message}`)
+    }
   }
 
   const handleRewrite = async () => {

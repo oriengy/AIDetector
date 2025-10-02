@@ -23,15 +23,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // TODO: 检查订阅状态
-    // const { data: subscription } = await supabase
-    //   .from('subscriptions')
-    //   .select('*')
-    //   .eq('user_id', user.id)
-    //   .single()
-    // if (!subscription || subscription.subscription_status !== 'active') {
-    //   return NextResponse.json({ error: 'Subscription required' }, { status: 403 })
-    // }
+    // 检查订阅状态
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('subscription_status', 'active')
+      .gte('end_date', new Date().toISOString())
+      .single()
+
+    if (!subscription) {
+      return NextResponse.json({ error: 'Active subscription required' }, { status: 403 })
+    }
 
     // === DUMMY AI 改写 API ===
     // 随机删除 10% 的行，替换 10% 的行
