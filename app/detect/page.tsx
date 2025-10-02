@@ -60,18 +60,13 @@ export default function DetectPage() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 检查用户订阅状态
+  // 检查用户订阅状态（通过 API）
   const checkSubscription = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('subscription_status', 'active')
-        .gte('end_date', new Date().toISOString())
-        .single()
+      const response = await fetch('/api/subscription/check')
+      const data = await response.json()
 
-      if (data && !error) {
+      if (response.ok && data.hasSubscription) {
         setHasPurchased(true)
       } else {
         setHasPurchased(false)
@@ -172,25 +167,15 @@ export default function DetectPage() {
     }
 
     try {
-      // 创建订阅记录（有效期一个月）
-      const startDate = new Date()
-      const endDate = new Date()
-      endDate.setMonth(endDate.getMonth() + 1) // 一个月后过期
+      // 通过 API 创建订阅记录
+      const response = await fetch('/api/subscription/create', {
+        method: 'POST',
+      })
 
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: user.id,
-          subscription_type: 'free_trial',
-          subscription_status: 'active',
-          start_date: startDate.toISOString(),
-          end_date: endDate.toISOString(),
-        })
-        .select()
-        .single()
+      const data = await response.json()
 
-      if (error) {
-        throw error
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create subscription')
       }
 
       // 订阅创建成功
