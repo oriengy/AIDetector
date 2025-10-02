@@ -25,6 +25,10 @@ export default function DetectPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<DetectionResult | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [isRewriting, setIsRewriting] = useState(false)
+  const [rewrittenText, setRewrittenText] = useState('')
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [hasPurchased, setHasPurchased] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -43,6 +47,33 @@ export default function DetectPage() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // 从 localStorage 恢复文本内容和检测结果
+  useEffect(() => {
+    const savedText = localStorage.getItem('detectText')
+    const savedResult = localStorage.getItem('detectResult')
+
+    if (savedText) {
+      setText(savedText)
+      localStorage.removeItem('detectText')
+    }
+
+    if (savedResult) {
+      try {
+        setResult(JSON.parse(savedResult))
+        localStorage.removeItem('detectResult')
+      } catch (e) {
+        console.error('Failed to parse saved result:', e)
+      }
+    }
+  }, [])
+
+  // 保存文本到 localStorage（用于登录后恢复）
+  useEffect(() => {
+    if (text && !user) {
+      localStorage.setItem('detectText', text)
+    }
+  }, [text, user])
 
   const handleDetect = async () => {
     if (!text.trim()) {
@@ -79,6 +110,67 @@ export default function DetectPage() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  const handleHumanizerClick = () => {
+    // 1. 如果未登录，跳转到登录页
+    if (!user) {
+      localStorage.setItem('detectText', text)
+      localStorage.setItem('detectResult', JSON.stringify(result))
+      router.push('/login')
+      return
+    }
+
+    // 2. 如果已登录但未购买，显示购买弹窗
+    if (!hasPurchased) {
+      setShowPurchaseModal(true)
+      return
+    }
+
+    // 3. 如果已购买，执行改写
+    handleRewrite()
+  }
+
+  const handlePurchase = () => {
+    // 模拟购买流程（0元购买）
+    setHasPurchased(true)
+    setShowPurchaseModal(false)
+    alert('Purchase successful! You can now use the AI Humanizer.')
+    // 购买成功后自动执行改写
+    handleRewrite()
+  }
+
+  const handleRewrite = async () => {
+    if (!text.trim()) {
+      alert('Please enter some text to rewrite')
+      return
+    }
+
+    setIsRewriting(true)
+    setRewrittenText('')
+
+    try {
+      const response = await fetch('/api/rewrite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Rewrite failed')
+      }
+
+      const data = await response.json()
+      setRewrittenText(data.rewrittenText)
+      alert(`Rewrite completed!\nOriginal: ${data.originalScore}% AI\nRewritten: ${data.newScore}% AI`)
+    } catch (error: any) {
+      alert(`Error: ${error.message}`)
+    } finally {
+      setIsRewriting(false)
+    }
   }
 
   const getScoreColor = (score: number) => {
@@ -229,17 +321,89 @@ export default function DetectPage() {
                     Want to humanize this text and reduce AI detection?
                   </p>
                   <button
-                    onClick={() => router.push('/rewrite')}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                    onClick={handleHumanizerClick}
+                    disabled={isRewriting}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Try AI Humanizer (Premium)
+                    {isRewriting ? 'Rewriting...' : 'Try AI Humanizer (Premium)'}
                   </button>
                 </div>
+
+                {/* Rewritten Text Display */}
+                {rewrittenText && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-green-900 mb-2">Rewritten Text:</h4>
+                    <div className="bg-white rounded p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                      {rewrittenText}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(rewrittenText)
+                        alert('Copied to clipboard!')
+                      }}
+                      className="mt-2 text-sm text-green-700 hover:text-green-800 underline"
+                    >
+                      Copy to Clipboard
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
       </main>
+
+      {/* Purchase Modal */}
+      {showPurchaseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">AI Humanizer Premium</h3>
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                Get access to our AI Humanizer to make your content undetectable:
+              </p>
+              <ul className="space-y-2 mb-4">
+                <li className="flex items-center text-gray-700">
+                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Unlimited rewrites
+                </li>
+                <li className="flex items-center text-gray-700">
+                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Reduce AI detection scores
+                </li>
+                <li className="flex items-center text-gray-700">
+                  <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Natural human-like text
+                </li>
+              </ul>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-2xl font-bold text-blue-900">FREE Trial</p>
+                <p className="text-sm text-blue-700">Limited time offer - $0</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPurchaseModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePurchase}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+              >
+                Get Started Free
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

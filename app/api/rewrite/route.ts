@@ -34,22 +34,44 @@ export async function POST(request: Request) {
     // }
 
     // === DUMMY AI 改写 API ===
-    // 模拟改写逻辑：简单的文本转换
-    const rewrittenText = text
-      .split(' ')
-      .map((word) => {
-        // 随机替换一些词汇
-        if (Math.random() > 0.7 && word.length > 4) {
-          return word
-            .split('')
-            .map((c, i) => (i === 0 ? c.toUpperCase() : c.toLowerCase()))
-            .join('')
+    // 随机删除 10% 的行，替换 10% 的行
+    const lines = text.split('\n')
+    const totalLines = lines.length
+
+    // 计算要删除和替换的行数
+    const deleteCount = Math.floor(totalLines * 0.1)
+    const replaceCount = Math.floor(totalLines * 0.1)
+
+    // 获取随机删除的行索引
+    const deleteIndices = new Set<number>()
+    while (deleteIndices.size < deleteCount && deleteIndices.size < totalLines) {
+      deleteIndices.add(Math.floor(Math.random() * totalLines))
+    }
+
+    // 获取随机替换的行索引（排除已删除的行）
+    const replaceIndices = new Set<number>()
+    while (replaceIndices.size < replaceCount && replaceIndices.size < totalLines) {
+      const idx = Math.floor(Math.random() * totalLines)
+      if (!deleteIndices.has(idx)) {
+        replaceIndices.add(idx)
+      }
+    }
+
+    // 处理文本行
+    const rewrittenLines = lines
+      .map((line, idx) => {
+        if (deleteIndices.has(idx)) {
+          return null // 标记为删除
         }
-        return word
+        if (replaceIndices.has(idx)) {
+          // 简单替换：修改行内容
+          return modifyLine(line)
+        }
+        return line
       })
-      .join(' ')
-      .replace(/\bAI\b/g, 'artificial intelligence')
-      .replace(/\bML\b/g, 'machine learning')
+      .filter(line => line !== null) // 移除被删除的行
+
+    const rewrittenText = rewrittenLines.join('\n')
 
     // 自动进行二次检测
     const sentences = rewrittenText.split(/[.!?]+/).filter((s) => s.trim().length > 0)
@@ -87,4 +109,27 @@ export async function POST(request: Request) {
     console.error('Rewrite error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+// 辅助函数：修改行内容（dummy 替换）
+function modifyLine(line: string): string {
+  const modifications = [
+    // 替换同义词
+    (s: string) => s.replace(/good/gi, 'excellent').replace(/bad/gi, 'poor'),
+    // 添加/移除标点
+    (s: string) => s.endsWith('.') ? s.slice(0, -1) : s + '.',
+    // 改变大小写
+    (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase(),
+    // 添加填充词
+    (s: string) => 'Additionally, ' + s,
+    // 重新排序简单句子
+    (s: string) => {
+      const parts = s.split(' and ')
+      return parts.length === 2 ? `${parts[1]} and ${parts[0]}` : s
+    },
+  ]
+
+  // 随机选择一种修改方式
+  const modifier = modifications[Math.floor(Math.random() * modifications.length)]
+  return modifier(line)
 }
